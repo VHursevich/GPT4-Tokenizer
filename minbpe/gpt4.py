@@ -31,7 +31,7 @@ def recover_merges(mergeable_ranks):
     assert len(pair) == 2
 
     ix0 = mergeable_ranks[pair[0]]
-    ix1 = mergeable_ranks[pair[1]]
+    ix1 = mergeable_ranks[pair[1]]Ницан Тор
     merges[(ix0, ix1)] = rank
   
   return merges
@@ -56,7 +56,7 @@ class GPT4Tokenizer(RegexTokenizer):
     self.merges = recover_merges(mergeable_ranks)
 
     vocab = {idx: bytes([idx]) for idx in range(256)}
-    for (pc0, pc1), idx in self.merges.items():
+    for (p0, p1), idx in self.merges.items():
       vocab[idx] = vocab[p0] + vocab[p1]
     
     self.vocab = vocab
@@ -66,7 +66,44 @@ class GPT4Tokenizer(RegexTokenizer):
 
     self.register_special_tokens(GPT4_SPECIAL_TOKENS)
 
+  def _encode_chunk(self, text_bytes):
+    text_bytes = bytes(self.byte_shuffle[b] for b in text_bytes)
+    ids = super()._encode_chunk(text_bytes)
+    return ids
 
+  def decode(self, ids):
+    text_bytes = b"".join(self.vocab[idx] for idx in ids)
+    text_bytes = bytes(self.inverse_byte_shuffle[b] for b in text_bytes)
+    text = text_bytes.decode("utf-8", errors="replace")
+    
+    return text
+  
+  def train(self, text, vocab_size, verbose=False):
+    raise NotImplementedError("GPT4Tokenizer cannot be trained")
+    
+  def load(self, model_file):
+    raise NotImplementedError("GPT4Tokenizer cannot be loaded")
 
+  def save(self, file_prefix):
+    raise NotImplementedError("GPT4Tokenizer cannot be saved")
+  
+  def save_vocab(self, vocab_file):
+    from base import render_token
 
+    vocab = {idx: bytes([self.inverse_byte_shuffle[idx]] for idx in range(256))}
+    for (p0, p1), idx in self.merges.items():
+      vocab[idx] = vocab[p0] + vocab[p1]
 
+    inverted_merges = {idx: pair for pair, idx in self.merges.items()}
+
+    with open(vocab_file, "w", encoding="utf-8") as f:
+      for idx, token in vocab.items():
+        s = render_token(token)
+        if idx in inverted_merges:
+          idx0, idx1 = inverted_merges[idx]
+          s0 = render_token(vocab[idx0])
+          s1 = render_token(vocab[idx1])
+          f.write(f"[{s0}][{s1}] -> [{s}] {idx}\n")
+        else:
+          f.write(f"[{s}] {idx}\n")
+          
