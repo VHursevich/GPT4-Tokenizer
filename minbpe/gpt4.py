@@ -1,5 +1,6 @@
 import tiktoken
-from regex import RegexTokenizer
+from .regex import RegexTokenizer
+from .base import render_token
 
 
 def bpe(mergeable_ranks, token, max_rank):
@@ -31,7 +32,7 @@ def recover_merges(mergeable_ranks):
     assert len(pair) == 2
 
     ix0 = mergeable_ranks[pair[0]]
-    ix1 = mergeable_ranks[pair[1]]Ницан Тор
+    ix1 = mergeable_ranks[pair[1]]
     merges[(ix0, ix1)] = rank
   
   return merges
@@ -51,7 +52,7 @@ class GPT4Tokenizer(RegexTokenizer):
     super().__init__(pattern=GPT4_SPLIT_PATTERN)
     # get the official tokenizer 
     enc = tiktoken.get_encoding("cl100k_base")
-    mergeable_ranks = enc.__mergeable_ranks
+    mergeable_ranks = enc._mergeable_ranks
 
     self.merges = recover_merges(mergeable_ranks)
 
@@ -88,7 +89,6 @@ class GPT4Tokenizer(RegexTokenizer):
     raise NotImplementedError("GPT4Tokenizer cannot be saved")
   
   def save_vocab(self, vocab_file):
-    from base import render_token
 
     vocab = {idx: bytes([self.inverse_byte_shuffle[idx]] for idx in range(256))}
     for (p0, p1), idx in self.merges.items():
